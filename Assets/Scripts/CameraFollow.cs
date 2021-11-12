@@ -4,18 +4,17 @@ using UnityEngine;
 
 public class CameraFollow : MonoBehaviour
 {
-    private Transform player;
+    [SerializeField] private Transform player;
+    private Vector3 offset;
     private void Start()
     {
-        player = GameObject.FindGameObjectWithTag("Player").transform;
+        offset = transform.position - player.position;
     }
 
     // Update is called once per frame
-    private void Update()
+    private void LateUpdate()
     {
-            Vector3 playerPos = player.position;
-            Vector3 cameraPos = transform.position;
-            cameraPos.z = playerPos.z - 14f;
-            transform.position = cameraPos;
+        Vector3 newPos = new Vector3(transform.position.x, transform.position.y, offset.z + player.position.z);
+        transform.position = Vector3.Lerp(transform.position, newPos, 10*Time.deltaTime);
     }
 }

@@ -4,163 +4,113 @@ using UnityEngine;
 // using UnityEngine.PhysicsModule;
 public class PlayerController : MonoBehaviour
 {
-    public Rigidbody rb;
-    public float forwardVelocity = 2000f;
-    private Vector3 movement;
-    private float xSpeed = 20f;
-    private float xMovement;
-    public Animator playerAnim;
-    // for Jump
-    public float jumpVelocity = 20f;
 
-    public float downAccel = 0.75f;
+    private CharacterController _controller;
+    public float forwardVelocity = 5f;
+    private Vector3 movement;
+    private float xMovement;
+    private Animator playerAnim;
+    // for Jump
+    [SerializeField] private float jumpHeight = 2f;
+    [SerializeField] private float Gravity = -15f;
     private int JumpInput = 0;
-    private int SlideInput = 0;
     private bool onGrounded = false;
-    // for Collider Animation slide
-    private CapsuleCollider _controller;
-    private float _colliderSize;
-    private float _colliderSizeJump;
-    private float _colliderHeight;
-    private Vector3 _colliderCenter;
-    //
+    public float GroundedOffset = -0.14f; //for rough ground
+    public float GroundedRadius = 0.28f;  //ground check radius same as cc
+    public LayerMask GroundLayers;
+    // for Difficulty
     private int difficultyLevel =1;
     private int maxDifficultyLevel = 10;
     private int scoreToNextLevel = 100;
     private int scoreTemp = 100;
 
-
+    private void Awake() {
+        _controller = GetComponent<CharacterController>();
+        playerAnim = GetComponent<Animator>();
+    }
 
 
     private void Start()
     {
-       movement = Vector3.zero;
+        movement = Vector3.zero;
 
-        _controller = GetComponent<CapsuleCollider>();
-        _colliderHeight = _controller.height;
-        _colliderCenter = _controller.center;
     }
-    private void FixedUpdate()
+    private void Update()
     {
             scoreTemp = (int)transform.position.z - 3;
 
             TouchHandling();
-            Run();
             CheckGrounded();
-            ColliderHandling();
             JumpFn();
             MoveX();
-            Slide();
-            rb.velocity = movement;
-            // _controller.Move(movement);
-
+        
             //clamp the x position of player
             Vector3 playerPos = transform.position;
             playerPos.x = Mathf.Clamp(playerPos.x, -3f, 3f);
             playerPos.y = Mathf.Clamp(playerPos.y, -10f,10f);
             transform.position = playerPos;
+            
+            // move character controller
+            _controller.Move(forwardVelocity*Time.deltaTime* Vector3.forward + new Vector3(0f, movement.y*Time.deltaTime, 0f));
+            
             if(scoreTemp >= scoreToNextLevel)
             {
                 LevelUp();
             }
+
     }
     private void LevelUp()
     {
         if(difficultyLevel ==  maxDifficultyLevel)
             return;
 
-        scoreToNextLevel += 200;
+        scoreToNextLevel += 300;
         difficultyLevel++;
-        forwardVelocity += difficultyLevel*100f;
+        forwardVelocity += difficultyLevel*2f;
     }
     
-    private void Run()
-    {
-        // _velocity.z = forwardVelocity * Time.deltaTime;
-        // _controller.Move(forwardVelocity*Time.deltaTime* Vector3.forward);
-        movement.z = forwardVelocity *Time.deltaTime;
-
-        
-        
-    }
     private void MoveX()
     {
-        transform.position = Vector3.MoveTowards(transform.position, new Vector3(xMovement, transform.position.y, transform.position.z), Time.deltaTime * xSpeed);
-    }
-    private void ColliderHandling()
-    {
-        //for slide animatin
-        _colliderSize = playerAnim.GetFloat("ColliderSizeSlide");
-        _colliderSizeJump = playerAnim.GetFloat("ColliderSizeJump");
-        if (_colliderSize > 0.3f && _colliderSize < 1f)
+        // transform.position = Vector3.MoveTowards(transform.position, new Vector3(xMovement, transform.position.y, transform.position.z), Time.deltaTime * xSpeed);
+        Vector3 targetpos = Vector3.right* xMovement;
+        Vector3 Currentpo = new Vector3 (transform.position.x, 0f, 0f);
+        Vector3 diff = targetpos - Currentpo;
+        Vector3 moveDir = diff.normalized *25f* Time.deltaTime;
+        if(moveDir.sqrMagnitude < diff.sqrMagnitude)
         {
-            _controller.height = 0.8f;
-            _controller.center = new Vector3(_controller.center.x, 0.4f, _controller.center.z);
-        }
-
-        //for jump animation
-        else if (_colliderSizeJump > 0.3f && _colliderSizeJump < 1f)
-        {
-            _controller.height = 0.8f;
-            _controller.center = new Vector3(_controller.center.x, 1.4f, _controller.center.z);
+            _controller.Move(moveDir);
         }
         else
-        {
-            _controller.height = _colliderHeight;
-            _controller.center = _colliderCenter;
-        }
+            _controller.Move(diff);
+    
     }
-
+    
     private void JumpFn()
     {
         if (JumpInput == 1 && onGrounded)
         {
-            movement.y = jumpVelocity * Time.deltaTime;
-            // _controller.Move(Vector3.up * jumpVelocity*Time.deltaTime);
-            // rb.AddForce(Vector3.up*Mathf.Sqrt(jumpVelocity* -2f*Physics.gravity.y), ForceMode.VelocityChange);
+            
+            movement.y = Mathf.Sqrt(jumpHeight * -2f * Gravity) ;
+            
             playerAnim.SetTrigger("Jump");
         }
         else if (JumpInput == 0 && onGrounded)
         {
-            movement.y = 0;
+            movement.y = -1f;
         }
         else
         {
-            movement.y -= downAccel*Time.deltaTime;
+            movement.y += Gravity*Time.deltaTime;
         }
         JumpInput = 0;
     }
     private void CheckGrounded()
     {
-        Ray ray = new Ray(transform.position + Vector3.up * 0.1f, Vector3.down);
-        RaycastHit[] hits = Physics.RaycastAll(ray, 0.5f);
-        onGrounded = false;
-        rb.useGravity = true;
-        foreach (var hit in hits)
-        {
-            if (!hit.collider.isTrigger)
-            {
-                if (movement.y <= 0)
-                {
-                    rb.position = Vector3.MoveTowards(rb.position, new Vector3(hit.point.x, hit.point.y + 0.1f, hit.point.z), Time.deltaTime * 10);
-                }
-                rb.useGravity = false;
-                onGrounded = true;
-                break;
-            }
-        }
+        // set sphere position, with offset
+        Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset, transform.position.z);
+        onGrounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers, QueryTriggerInteraction.Ignore);
     }
-    private void Slide()
-    {
-
-        if (SlideInput == 1 && onGrounded)
-        {
-            playerAnim.SetTrigger("Slide");
-
-            SlideInput = 0;
-        }
-    }
-
+    
 
     // Touch Controle
     private Touch sTouch;
@@ -194,10 +144,10 @@ public class PlayerController : MonoBehaviour
                         {
                             JumpInput = 1;
                         }
-                        else if (Yswipe > 0) //slide
-                        {
-                            SlideInput = 1;
-                        }
+                        // else if (Yswipe > 0) //slide
+                        // {
+                        //     SlideInput = 1;
+                        // }
                     }
                     else if (!isVertical)
                     {

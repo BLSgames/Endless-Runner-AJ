@@ -27,14 +27,15 @@ public class PlayerCollision : MonoBehaviour
         Score = (int)playerPos.position.z - 3;
         ScoreText.text = "Score:" + (Score).ToString();
     }
-    private void OnCollisionEnter(Collision other)
-    {
-        if (other.collider.tag == "Obstacles")
+    private void OnControllerColliderHit(ControllerColliderHit hit) {
+        if (hit.transform.tag == "Obstacles")
         {
             StartCoroutine(ContinueToGameOver());
-            ObstacleToDestroy = other.gameObject;
+            ObstacleToDestroy = hit.gameObject;
         }
+        
     }
+
     IEnumerator ContinueToGameOver()
     {
         movement.enabled = false;
@@ -103,8 +104,10 @@ public class PlayerCollision : MonoBehaviour
             HeartText.text = "X" + (heartTemp).ToString();
             PlayerPrefs.SetString("TotalHeart", Helper.Encrypt(Helper.Serialize<int>(heartTemp)));
 
-            Destroy(colInfo.gameObject);
-            GameObject.FindObjectOfType<HeartManager>().SpawnHeart();
+            // Destroy(colInfo.gameObject);
+            // GameObject.FindObjectOfType<HeartManager>().SpawnHeart();
+            ObjectPoolerHeart.instance.SpawnHeart();
+            colInfo.gameObject.SetActive(false);
             AudioManager.instance.Play("Heart");
         }
 
